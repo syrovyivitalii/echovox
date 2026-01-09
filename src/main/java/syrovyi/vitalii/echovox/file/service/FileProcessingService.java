@@ -6,4 +6,6 @@ public interface FileProcessingService {
     void uploadFile(MultipartFile file);
 
     void replaceFile(MultipartFile file);
+
+    void deleteFile(String filename);
 }

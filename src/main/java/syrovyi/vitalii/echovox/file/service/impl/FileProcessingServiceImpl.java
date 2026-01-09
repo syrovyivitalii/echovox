@@ -3,6 +3,7 @@ package syrovyi.vitalii.echovox.file.service.impl;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.BooleanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import syrovyi.vitalii.echovox.common.exception.enums.ErrorCode;
@@ -42,6 +43,19 @@ public class FileProcessingServiceImpl implements FileProcessingService {
         processFile(file, true);
     }
 
+    @Override
+    public void deleteFile(String filename) {
+        validateFileName(filename);
+
+        String storedFilename = filename.replace(".xml", ".json");
+
+        if (BooleanUtils.isFalse(fileSystemRepository.exists(storedFilename))) {
+            throw new ClientBackendException(ErrorCode.NOT_FOUND, "File not found: " + filename);
+        }
+
+        fileSystemRepository.delete(storedFilename);
+    }
+
     public void processFile(MultipartFile file, boolean allowOverwrite) {
         String originalFilename = file.getOriginalFilename();
 
@@ -52,7 +66,7 @@ public class FileProcessingServiceImpl implements FileProcessingService {
         validateFileName(originalFilename);
         String filenameToSave = originalFilename.replace(".xml", ".json");
 
-        if (!allowOverwrite && fileSystemRepository.exists(filenameToSave)) {
+        if (BooleanUtils.isFalse(allowOverwrite) && fileSystemRepository.exists(filenameToSave)) {
             throw new ClientBackendException(ErrorCode.ALREADY_EXISTS,
                     "File with name " + filenameToSave + " already exists");
         }
@@ -63,11 +77,7 @@ public class FileProcessingServiceImpl implements FileProcessingService {
             byte[] jsonBytes = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(jsonDto);
 
             fileSystemRepository.save(filenameToSave, jsonBytes);
-
-            log.info("File {} successfully processed and saved as {}", originalFilename, filenameToSave);
-
         } catch (IOException e) {
-            log.error("Error processing file {}", originalFilename, e);
             throw new ClientBackendException(ErrorCode.INVALID_FORMAT, "Error parsing XML or writing file", e);
         }
     }
@@ -76,8 +86,10 @@ public class FileProcessingServiceImpl implements FileProcessingService {
         if (Objects.isNull(filename)) {
             throw new ClientBackendException(ErrorCode.VALIDATION_ERROR, "Filename cannot be null");
         }
+
         Matcher matcher = PATTERN.matcher(filename);
-        if (!matcher.matches()) {
+
+        if (BooleanUtils.isFalse(matcher.matches())) {
             throw new ClientBackendException(ErrorCode.VALIDATION_ERROR,
                     "Filename " + filename + " does not match pattern: customer_type_date.xml");
         }

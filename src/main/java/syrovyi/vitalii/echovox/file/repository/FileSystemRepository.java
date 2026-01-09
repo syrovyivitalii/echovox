@@ -37,4 +37,13 @@ public class FileSystemRepository {
             throw new ClientBackendException(ErrorCode.IO_ERROR, "Failed to store file " + filename, e);
         }
     }
+
+    public void delete(String filename) {
+        try {
+            Path file = rootLocation.resolve(filename);
+            Files.deleteIfExists(file);
+        } catch (IOException e) {
+            throw new ClientBackendException(ErrorCode.IO_ERROR, "Could not delete file: " + filename, e);
+        }
+    }
 }
