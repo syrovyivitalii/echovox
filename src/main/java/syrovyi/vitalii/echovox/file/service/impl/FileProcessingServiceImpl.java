@@ -14,6 +14,7 @@ import syrovyi.vitalii.echovox.file.controller.dto.response.FileResponseDTO;
 import syrovyi.vitalii.echovox.file.mapper.FileDataMapper;
 import syrovyi.vitalii.echovox.file.repository.FileSystemRepository;
 import syrovyi.vitalii.echovox.file.service.FileProcessingService;
+import syrovyi.vitalii.echovox.file.service.FilenameHandlerService;
 import tools.jackson.dataformat.xml.XmlMapper;
 
 import java.io.IOException;
@@ -21,154 +22,127 @@ import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Predicate;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class FileProcessingServiceImpl implements FileProcessingService {
-    private final FileSystemRepository fileSystemRepository;
-    private final FileDataMapper fileDataMapper;
 
-    private final XmlMapper xmlMapper = new XmlMapper();
+    private final XmlMapper xmlMapper;
     private final ObjectMapper objectMapper;
-
-    private static final String FILE_NAME_REGEX = "^([a-zA-Z0-9]+)_([a-zA-Z0-9]+)_(\\d{4}-\\d{2}-\\d{2})\\.xml$";
-    private static final Pattern PATTERN = Pattern.compile(FILE_NAME_REGEX);
+    private final FileDataMapper fileDataMapper;
+    private final FileSystemRepository fileSystemRepository;
+    private final FilenameHandlerService filenameHandler;
 
     @Override
     public void uploadFile(MultipartFile file) {
-        processFile(file, false);
+        save(file, false);
     }
 
     @Override
     public void replaceFile(MultipartFile file) {
-        processFile(file, true);
+        save(file, true);
     }
 
     @Override
     public void deleteFile(String filename) {
-        validateFileName(filename);
+        filenameHandler.validate(filename);
+        String storedName = filenameHandler.toStoredFilename(filename);
 
-        String storedFilename = filename.replace(".xml", ".json");
-
-        if (BooleanUtils.isFalse(fileSystemRepository.exists(storedFilename))) {
+        if (BooleanUtils.isFalse(fileSystemRepository.exists(storedName))) {
             throw new ClientBackendException(ErrorCode.NOT_FOUND, "File not found: " + filename);
         }
 
-        fileSystemRepository.delete(storedFilename);
-    }
-
-    public List<FileResponseDTO> getFilesByDate(LocalDate date) {
-        return searchFiles(filename -> filename.endsWith("_" + date.toString() + ".xml"));
-    }
-
-    @Override
-    public List<FileResponseDTO> getFilesByCustomer(String customerName) {
-        return searchFiles(filename -> {
-            Matcher matcher = PATTERN.matcher(filename);
-
-            return matcher.matches() && matcher.group(1).equals(customerName);
-        });
-    }
-
-    @Override
-    public List<FileResponseDTO> getFilesByType(String type) {
-        return searchFiles(filename -> {
-            Matcher matcher = PATTERN.matcher(filename);
-
-            return matcher.matches() && matcher.group(2).equals(type);
-        });
-    }
-
-    private List<FileResponseDTO> searchFiles(Predicate<String> filenameFilter) {
-        try (Stream<Path> stream = fileSystemRepository.loadAll()) {
-            return stream
-                    .filter(path -> {
-                        String originalXmlName = path.getFileName().toString().replace(".json", ".xml");
-
-                        return filenameFilter.test(originalXmlName);
-                    })
-                    .map(path -> {
-                        String jsonFilename = path.getFileName().toString();
-                        String xmlFilename = jsonFilename.replace(".json", ".xml");
-
-                        try {
-                            byte[] bytes = fileSystemRepository.readFile(jsonFilename);
-                            CustomerJsonDTO content = objectMapper.readValue(bytes, CustomerJsonDTO.class);
-
-                            return fileDataMapper.mapToFileResponseDTO(xmlFilename, content);
-                        } catch (IOException e) {
-                            return null;
-                        }
-                    })
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
-            throw new ClientBackendException(ErrorCode.IO_ERROR, "Error searching files", e);
-        }
+        fileSystemRepository.delete(storedName);
     }
 
     @Override
     public CustomerJsonDTO getFileContent(String filename) {
-        validateFileName(filename);
+        filenameHandler.validate(filename);
+        String storedName = filenameHandler.toStoredFilename(filename);
 
-        String storedFilename = filename.replace(".xml", ".json");
-
-        if (BooleanUtils.isFalse(fileSystemRepository.exists(storedFilename))) {
+        if (BooleanUtils.isFalse(fileSystemRepository.exists(storedName))) {
             throw new ClientBackendException(ErrorCode.NOT_FOUND, "File not found: " + filename);
         }
 
         try {
-            byte[] fileContent = fileSystemRepository.readFile(storedFilename);
+            byte[] bytes = fileSystemRepository.readFile(storedName);
 
-            return objectMapper.readValue(fileContent, CustomerJsonDTO.class);
-
+            return objectMapper.readValue(bytes, CustomerJsonDTO.class);
         } catch (IOException e) {
-            throw new ClientBackendException(ErrorCode.IO_ERROR, "Error reading file content", e);
+            throw new ClientBackendException(ErrorCode.IO_ERROR, "Failed to read file content", e);
         }
     }
 
-    public void processFile(MultipartFile file, boolean allowOverwrite) {
+    @Override
+    public List<FileResponseDTO> getFilesByDate(LocalDate date) {
+        return searchFiles(name -> filenameHandler.matchesDate(name, date));
+    }
+
+    @Override
+    public List<FileResponseDTO> getFilesByCustomer(String customerName) {
+        return searchFiles(name -> filenameHandler.matchesCustomer(name, customerName));
+    }
+
+    @Override
+    public List<FileResponseDTO> getFilesByType(String type) {
+        return searchFiles(name -> filenameHandler.matchesType(name, type));
+    }
+
+    private void save(MultipartFile file, boolean allowOverwrite) {
         String originalFilename = file.getOriginalFilename();
 
         if (Objects.isNull(originalFilename) || originalFilename.isEmpty()) {
-            throw new ClientBackendException(ErrorCode.VALIDATION_ERROR, "Filename cannot be null or empty");
+            throw new ClientBackendException(ErrorCode.VALIDATION_ERROR, "Filename cannot be empty");
         }
+        filenameHandler.validate(originalFilename);
 
-        validateFileName(originalFilename);
-        String filenameToSave = originalFilename.replace(".xml", ".json");
+        String storedName = filenameHandler.toStoredFilename(originalFilename);
 
-        if (BooleanUtils.isFalse(allowOverwrite) && fileSystemRepository.exists(filenameToSave)) {
+        if (BooleanUtils.isFalse(allowOverwrite) && fileSystemRepository.exists(storedName)) {
             throw new ClientBackendException(ErrorCode.ALREADY_EXISTS,
-                    "File with name " + filenameToSave + " already exists");
+                    "File " + storedName + " already exists");
         }
 
         try {
             CustomerXmlDTO xmlDto = xmlMapper.readValue(file.getInputStream(), CustomerXmlDTO.class);
             CustomerJsonDTO jsonDto = fileDataMapper.toJsonDto(xmlDto);
-            byte[] jsonBytes = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(jsonDto);
 
-            fileSystemRepository.save(filenameToSave, jsonBytes);
+            byte[] jsonBytes = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(jsonDto);
+            fileSystemRepository.save(storedName, jsonBytes);
         } catch (IOException e) {
             throw new ClientBackendException(ErrorCode.INVALID_FORMAT, "Error parsing XML or writing file", e);
         }
     }
 
-    private void validateFileName(String filename) {
-        if (Objects.isNull(filename)) {
-            throw new ClientBackendException(ErrorCode.VALIDATION_ERROR, "Filename cannot be null");
+    private List<FileResponseDTO> searchFiles(Predicate<String> xmlFilenameFilter) {
+        try (Stream<Path> stream = fileSystemRepository.loadAll()) {
+            return stream
+                    .filter(path -> !path.toFile().isDirectory())
+                    .map(path -> path.getFileName().toString())
+                    .map(filenameHandler::toOriginalFilename)
+                    .filter(xmlFilenameFilter)
+                    .map(this::mapFileResponseDTO)
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .toList();
+        } catch (Exception e) {
+            throw new ClientBackendException(ErrorCode.IO_ERROR, "Error searching files", e);
         }
+    }
 
-        Matcher matcher = PATTERN.matcher(filename);
+    private Optional<FileResponseDTO> mapFileResponseDTO(String xmlFilename) {
+        try {
+            String jsonFilename = filenameHandler.toStoredFilename(xmlFilename);
+            byte[] bytes = fileSystemRepository.readFile(jsonFilename);
+            CustomerJsonDTO content = objectMapper.readValue(bytes, CustomerJsonDTO.class);
 
-        if (BooleanUtils.isFalse(matcher.matches())) {
-            throw new ClientBackendException(ErrorCode.VALIDATION_ERROR,
-                    "Filename " + filename + " does not match pattern: customer_type_date.xml");
+            return Optional.of(fileDataMapper.mapToFileResponseDTO(xmlFilename, content));
+        } catch (Exception e) {
+            return Optional.empty();
         }
     }
 }
