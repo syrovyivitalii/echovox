@@ -9,13 +9,6 @@ public class ClientBackendException extends RuntimeException {
   private final ErrorCode errorCode;
   private final String overrideMessage;
 
-  public ClientBackendException(ErrorCode errorCode) {
-    super(errorCode.getDefaultDescription());
-    Assert.notNull(errorCode, "ErrorCode is required");
-    this.errorCode = errorCode;
-    this.overrideMessage = null;
-  }
-
   public ClientBackendException(ErrorCode errorCode, String overrideMessage) {
     super(overrideMessage != null ? overrideMessage : errorCode.getDefaultDescription());
     Assert.notNull(errorCode, "ErrorCode is required");
