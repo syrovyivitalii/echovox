@@ -10,15 +10,21 @@ import syrovyi.vitalii.echovox.common.exception.enums.ErrorCode;
 import syrovyi.vitalii.echovox.common.exception.exception.ClientBackendException;
 import syrovyi.vitalii.echovox.file.controller.request.CustomerJsonDTO;
 import syrovyi.vitalii.echovox.file.controller.request.CustomerXmlDTO;
+import syrovyi.vitalii.echovox.file.controller.response.FileResponseDTO;
 import syrovyi.vitalii.echovox.file.mapper.FileDataMapper;
 import syrovyi.vitalii.echovox.file.repository.FileSystemRepository;
 import syrovyi.vitalii.echovox.file.service.FileProcessingService;
 import tools.jackson.dataformat.xml.XmlMapper;
 
 import java.io.IOException;
+import java.nio.file.Path;
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Slf4j
 @Service
@@ -54,6 +60,34 @@ public class FileProcessingServiceImpl implements FileProcessingService {
         }
 
         fileSystemRepository.delete(storedFilename);
+    }
+
+    public List<FileResponseDTO> getFilesByDate(LocalDate date) {
+        String dateSuffix = "_" + date.toString() + ".json";
+
+        try (Stream<Path> stream = fileSystemRepository.loadAll()) {
+            return stream
+                    .filter(path -> path.getFileName().toString().endsWith(dateSuffix))
+                    .map(path -> {
+                        String jsonFilename = path.getFileName().toString();
+                        String xmlFilename = jsonFilename.replace(".json", ".xml");
+
+                        try {
+                            byte[] bytes = fileSystemRepository.readFile(jsonFilename);
+                            CustomerJsonDTO content = objectMapper.readValue(bytes, CustomerJsonDTO.class);
+
+                            return fileDataMapper.mapToFileResponseDTO(xmlFilename, content);
+
+                        } catch (IOException e) {
+                            return null;
+                        }
+                    })
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+
+        } catch (Exception e) {
+            throw new ClientBackendException(ErrorCode.IO_ERROR, "Error searching files", e);
+        }
     }
 
     @Override

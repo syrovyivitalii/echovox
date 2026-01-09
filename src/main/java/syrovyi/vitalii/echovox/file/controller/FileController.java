@@ -7,7 +7,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import syrovyi.vitalii.echovox.file.controller.request.CustomerJsonDTO;
+import syrovyi.vitalii.echovox.file.controller.response.FileResponseDTO;
 import syrovyi.vitalii.echovox.file.service.FileProcessingService;
+
+import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/files")
@@ -41,5 +45,12 @@ public class FileController {
         CustomerJsonDTO content = fileProcessingService.getFileContent(filename);
 
         return ResponseEntity.ok(content);
+    }
+
+    @GetMapping(params = "date")
+    public ResponseEntity<List<FileResponseDTO>> getFilesByDate(@RequestParam("date") LocalDate date) {
+        List<FileResponseDTO> files = fileProcessingService.getFilesByDate(date);
+
+        return ResponseEntity.ok(files);
     }
 }
