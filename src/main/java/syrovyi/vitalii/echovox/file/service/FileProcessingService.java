@@ -1,8 +1,8 @@
 package syrovyi.vitalii.echovox.file.service;
 
 import org.springframework.web.multipart.MultipartFile;
-import syrovyi.vitalii.echovox.file.controller.request.CustomerJsonDTO;
-import syrovyi.vitalii.echovox.file.controller.response.FileResponseDTO;
+import syrovyi.vitalii.echovox.file.controller.dto.request.CustomerJsonDTO;
+import syrovyi.vitalii.echovox.file.controller.dto.response.FileResponseDTO;
 
 import java.time.LocalDate;
 import java.util.List;

@@ -2,9 +2,9 @@ package syrovyi.vitalii.echovox.file.mapper;
 
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import syrovyi.vitalii.echovox.file.controller.request.CustomerJsonDTO;
-import syrovyi.vitalii.echovox.file.controller.request.CustomerXmlDTO;
-import syrovyi.vitalii.echovox.file.controller.response.FileResponseDTO;
+import syrovyi.vitalii.echovox.file.controller.dto.request.CustomerJsonDTO;
+import syrovyi.vitalii.echovox.file.controller.dto.request.CustomerXmlDTO;
+import syrovyi.vitalii.echovox.file.controller.dto.response.FileResponseDTO;
 
 import java.util.Objects;
 
