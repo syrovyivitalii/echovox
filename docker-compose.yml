@@ -1,0 +1,14 @@
+networks:
+  app_network:
+    driver: bridge
+
+services:
+  app:
+    container_name: echovox_app
+    ports:
+      - "8080:8080"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    networks:
+      - app_network
