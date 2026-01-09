@@ -32,18 +32,27 @@ public class FileProcessingServiceImpl implements FileProcessingService {
     private static final String FILE_NAME_REGEX = "^([a-zA-Z0-9]+)_([a-zA-Z0-9]+)_(\\d{4}-\\d{2}-\\d{2})\\.xml$";
     private static final Pattern PATTERN = Pattern.compile(FILE_NAME_REGEX);
 
+    @Override
     public void uploadFile(MultipartFile file) {
+        processFile(file, false);
+    }
+
+    @Override
+    public void replaceFile(MultipartFile file) {
+        processFile(file, true);
+    }
+
+    public void processFile(MultipartFile file, boolean allowOverwrite) {
         String originalFilename = file.getOriginalFilename();
 
-        if (originalFilename == null || originalFilename.isEmpty()) {
+        if (Objects.isNull(originalFilename) || originalFilename.isEmpty()) {
             throw new ClientBackendException(ErrorCode.VALIDATION_ERROR, "Filename cannot be null or empty");
         }
 
         validateFileName(originalFilename);
-
         String filenameToSave = originalFilename.replace(".xml", ".json");
 
-        if (fileSystemRepository.exists(filenameToSave)) {
+        if (!allowOverwrite && fileSystemRepository.exists(filenameToSave)) {
             throw new ClientBackendException(ErrorCode.ALREADY_EXISTS,
                     "File with name " + filenameToSave + " already exists");
         }
@@ -55,8 +64,10 @@ public class FileProcessingServiceImpl implements FileProcessingService {
 
             fileSystemRepository.save(filenameToSave, jsonBytes);
 
+            log.info("File {} successfully processed and saved as {}", originalFilename, filenameToSave);
+
         } catch (IOException e) {
-            log.error("Error processing file", e);
+            log.error("Error processing file {}", originalFilename, e);
             throw new ClientBackendException(ErrorCode.INVALID_FORMAT, "Error parsing XML or writing file", e);
         }
     }
