@@ -46,4 +46,13 @@ public class FileSystemRepository {
             throw new ClientBackendException(ErrorCode.IO_ERROR, "Could not delete file: " + filename, e);
         }
     }
+
+    public byte[] readFile(String filename) {
+        try {
+            Path file = rootLocation.resolve(filename);
+            return Files.readAllBytes(file);
+        } catch (IOException e) {
+            throw new ClientBackendException(ErrorCode.IO_ERROR, "Could not read file: " + filename, e);
+        }
+    }
 }

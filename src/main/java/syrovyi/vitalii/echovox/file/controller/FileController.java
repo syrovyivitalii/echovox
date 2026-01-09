@@ -6,6 +6,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import syrovyi.vitalii.echovox.file.controller.request.CustomerJsonDTO;
 import syrovyi.vitalii.echovox.file.service.FileProcessingService;
 
 @RestController
@@ -33,5 +34,12 @@ public class FileController {
         fileProcessingService.deleteFile(filename);
 
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    }
+
+    @GetMapping(value = "/{filename}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<CustomerJsonDTO> getFileContent(@PathVariable String filename) {
+        CustomerJsonDTO content = fileProcessingService.getFileContent(filename);
+
+        return ResponseEntity.ok(content);
     }
 }

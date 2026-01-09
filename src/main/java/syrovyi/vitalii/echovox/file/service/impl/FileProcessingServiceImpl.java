@@ -56,6 +56,26 @@ public class FileProcessingServiceImpl implements FileProcessingService {
         fileSystemRepository.delete(storedFilename);
     }
 
+    @Override
+    public CustomerJsonDTO getFileContent(String filename) {
+        validateFileName(filename);
+
+        String storedFilename = filename.replace(".xml", ".json");
+
+        if (BooleanUtils.isFalse(fileSystemRepository.exists(storedFilename))) {
+            throw new ClientBackendException(ErrorCode.NOT_FOUND, "File not found: " + filename);
+        }
+
+        try {
+            byte[] fileContent = fileSystemRepository.readFile(storedFilename);
+
+            return objectMapper.readValue(fileContent, CustomerJsonDTO.class);
+
+        } catch (IOException e) {
+            throw new ClientBackendException(ErrorCode.IO_ERROR, "Error reading file content", e);
+        }
+    }
+
     public void processFile(MultipartFile file, boolean allowOverwrite) {
         String originalFilename = file.getOriginalFilename();
 
