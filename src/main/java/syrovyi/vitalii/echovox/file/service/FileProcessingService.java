@@ -16,5 +16,9 @@ public interface FileProcessingService {
 
     List<FileResponseDTO> getFilesByDate(LocalDate date);
 
+    List<FileResponseDTO> getFilesByCustomer(String customerName);
+
+    List<FileResponseDTO> getFilesByType(String type);
+
     CustomerJsonDTO getFileContent(String filename);
 }

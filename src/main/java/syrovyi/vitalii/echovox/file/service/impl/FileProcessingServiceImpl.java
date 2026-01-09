@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -63,11 +64,35 @@ public class FileProcessingServiceImpl implements FileProcessingService {
     }
 
     public List<FileResponseDTO> getFilesByDate(LocalDate date) {
-        String dateSuffix = "_" + date.toString() + ".json";
+        return searchFiles(filename -> filename.endsWith("_" + date.toString() + ".xml"));
+    }
 
+    @Override
+    public List<FileResponseDTO> getFilesByCustomer(String customerName) {
+        return searchFiles(filename -> {
+            Matcher matcher = PATTERN.matcher(filename);
+
+            return matcher.matches() && matcher.group(1).equals(customerName);
+        });
+    }
+
+    @Override
+    public List<FileResponseDTO> getFilesByType(String type) {
+        return searchFiles(filename -> {
+            Matcher matcher = PATTERN.matcher(filename);
+
+            return matcher.matches() && matcher.group(2).equals(type);
+        });
+    }
+
+    private List<FileResponseDTO> searchFiles(Predicate<String> filenameFilter) {
         try (Stream<Path> stream = fileSystemRepository.loadAll()) {
             return stream
-                    .filter(path -> path.getFileName().toString().endsWith(dateSuffix))
+                    .filter(path -> {
+                        String originalXmlName = path.getFileName().toString().replace(".json", ".xml");
+
+                        return filenameFilter.test(originalXmlName);
+                    })
                     .map(path -> {
                         String jsonFilename = path.getFileName().toString();
                         String xmlFilename = jsonFilename.replace(".json", ".xml");
@@ -77,14 +102,12 @@ public class FileProcessingServiceImpl implements FileProcessingService {
                             CustomerJsonDTO content = objectMapper.readValue(bytes, CustomerJsonDTO.class);
 
                             return fileDataMapper.mapToFileResponseDTO(xmlFilename, content);
-
                         } catch (IOException e) {
                             return null;
                         }
                     })
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
-
         } catch (Exception e) {
             throw new ClientBackendException(ErrorCode.IO_ERROR, "Error searching files", e);
         }

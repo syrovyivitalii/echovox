@@ -47,10 +47,22 @@ public class FileController {
         return ResponseEntity.ok(content);
     }
 
-    @GetMapping(params = "date")
+    @GetMapping(value = "/by/date", params = "date")
     public ResponseEntity<List<FileResponseDTO>> getFilesByDate(@RequestParam("date") LocalDate date) {
         List<FileResponseDTO> files = fileProcessingService.getFilesByDate(date);
 
+        return ResponseEntity.ok(files);
+    }
+
+    @GetMapping(value = "/by/customer", params = "customer")
+    public ResponseEntity<List<FileResponseDTO>> getFilesByCustomer(@RequestParam("customer") String customer) {
+        List<FileResponseDTO> files = fileProcessingService.getFilesByCustomer(customer);
+        return ResponseEntity.ok(files);
+    }
+
+    @GetMapping(value = "/by/type", params = "type")
+    public ResponseEntity<List<FileResponseDTO>> getFilesByType(@RequestParam("type") String type) {
+        List<FileResponseDTO> files = fileProcessingService.getFilesByType(type);
         return ResponseEntity.ok(files);
     }
 }
