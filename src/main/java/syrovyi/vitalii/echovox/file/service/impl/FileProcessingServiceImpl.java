@@ -79,17 +79,23 @@ public class FileProcessingServiceImpl implements FileProcessingService {
 
     @Override
     public List<FileResponseDTO> getFilesByDate(LocalDate date) {
-        return searchFiles(name -> filenameHandler.matchesDate(name, date));
+        String glob = filenameHandler.generateDateGlob(date);
+
+        return searchFiles(glob, name -> filenameHandler.matchesDate(name, date));
     }
 
     @Override
     public List<FileResponseDTO> getFilesByCustomer(String customerName) {
-        return searchFiles(name -> filenameHandler.matchesCustomer(name, customerName));
+        String glob = filenameHandler.generateCustomerGlob(customerName);
+
+        return searchFiles(glob, name -> filenameHandler.matchesCustomer(name, customerName));
     }
 
     @Override
     public List<FileResponseDTO> getFilesByType(String type) {
-        return searchFiles(name -> filenameHandler.matchesType(name, type));
+        String glob = filenameHandler.generateTypeGlob(type);
+
+        return searchFiles(glob, name -> filenameHandler.matchesType(name, type));
     }
 
     private void save(MultipartFile file, boolean allowOverwrite) {
@@ -118,13 +124,12 @@ public class FileProcessingServiceImpl implements FileProcessingService {
         }
     }
 
-    private List<FileResponseDTO> searchFiles(Predicate<String> xmlFilenameFilter) {
-        try (Stream<Path> stream = fileSystemRepository.loadAll()) {
+    private List<FileResponseDTO> searchFiles(String globPattern, Predicate<String> strictFilter) {
+        try (Stream<Path> stream = fileSystemRepository.findFiles(globPattern)) {
             return stream
-                    .filter(path -> !path.toFile().isDirectory())
                     .map(path -> path.getFileName().toString())
                     .map(filenameHandler::toOriginalFilename)
-                    .filter(xmlFilenameFilter)
+                    .filter(strictFilter)
                     .map(this::mapFileResponseDTO)
                     .filter(Optional::isPresent)
                     .map(Optional::get)

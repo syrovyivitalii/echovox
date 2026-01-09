@@ -14,4 +14,10 @@ public interface FilenameHandlerService {
     boolean matchesType(String filename, String type);
 
     boolean matchesDate(String filename, LocalDate date);
+
+    String generateDateGlob(LocalDate date);
+
+    String generateCustomerGlob(String customerName);
+
+    String generateTypeGlob(String type);
 }

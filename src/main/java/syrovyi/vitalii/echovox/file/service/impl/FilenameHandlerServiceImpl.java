@@ -16,6 +16,8 @@ import java.util.regex.Pattern;
 public class FilenameHandlerServiceImpl implements FilenameHandlerService {
     private static final String EXT_XML = ".xml";
     private static final String EXT_JSON = ".json";
+    private static final String SEPARATOR = "_";
+    private static final String WILDCARD = "*";
 
     private static final String G_CUSTOMER = "customer";
     private static final String G_TYPE = "type";
@@ -63,5 +65,20 @@ public class FilenameHandlerServiceImpl implements FilenameHandlerService {
         Matcher m = FILENAME_PATTERN.matcher(filename);
 
         return m.matches() && m.group(G_DATE).equals(date.toString());
+    }
+
+    @Override
+    public String generateDateGlob(LocalDate date) {
+        return WILDCARD + SEPARATOR + date.toString() + EXT_JSON;
+    }
+
+    @Override
+    public String generateCustomerGlob(String customerName) {
+        return customerName + SEPARATOR + WILDCARD + EXT_JSON;
+    }
+
+    @Override
+    public String generateTypeGlob(String type) {
+        return WILDCARD + SEPARATOR + type + SEPARATOR + WILDCARD + EXT_JSON;
     }
 }
