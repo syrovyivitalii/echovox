@@ -1,4 +1,4 @@
-package syrovyi.vitalii.echovox.file.controller.request;
+package syrovyi.vitalii.echovox.file.controller.dto.request;
 
 import lombok.Data;
 
